@@ -8,7 +8,7 @@ from linebot.exceptions import (
     InvalidSignatureError, LineBotApiError
 )
 from linebot.models import (
-    MessageEvent, FollowEvent, TextMessage
+    MessageEvent, FollowEvent, TextMessage, ImageMessage, LocationMessage, StickerMessage
 )
 import requests, os
 # Load environment from .env file ------
@@ -52,5 +52,17 @@ def callback():
 def handle_follow_event(event):
     return
 
+@handler.add(TextMessage)
+def handle_text_event(event):
+    return
+
+@handler.add(LocationMessage)
+def handle_location_event(event):
+    return
+
+@handler.add(StickerMessage)
+def handle_sticker_event(event):
+    return
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=8080)
