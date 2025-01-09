@@ -12,7 +12,10 @@ from linebot.models import (
     FlexSendMessage, TextSendMessage, QuickReply, QuickReplyButton, MessageAction
 )
 from function import (
-    func_registration_to_access
+    func_registration_to_access, func_registration_data_collection_form
+)
+from database import (
+    insert_db, update_db, get_value_db
 )
 import requests, os
 # Load environment from .env file ------
@@ -34,7 +37,8 @@ handler = WebhookHandler(os.getenv('channel_secret'))
 def reply_registration_to_access(event):
     line_bot_api.reply_message(
         event.reply_token,[
-            FlexSendMessage(alt_text="hello", contents=func_registration_to_access(), quick_reply=QuickReply(
+            TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ 💬"),
+            FlexSendMessage(alt_text="Register to Access", contents=func_registration_to_access(), quick_reply=QuickReply(
                 items=[
                     QuickReplyButton(action=MessageAction(label='🖊 ลงทะเบียนเข้าใช้งาน',text='ลงทะเบียนเข้าใช้งาน')),
                     QuickReplyButton(action=MessageAction(label='❌ ละทิ้งข้อมูลทั้งหมด',text='ละทิ้งข้อมูลทั้งหมด')),
@@ -46,7 +50,77 @@ def reply_registration_to_access(event):
 
 # Function to reply registration data collection form
 def reply_registration_data_collection_form(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            FlexSendMessage(alt_text="Registration Data Form", contents=func_registration_data_collection_form(), quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=MessageAction(label='✅ ยืนยันการลงทะเบียน',text='ยืนยันการลงทะเบียน')),
+                    QuickReplyButton(action=MessageAction(label='❌ ละทิ้งข้อมูลทั้งหมด',text='ละทิ้งข้อมูลทั้งหมด')),
+                ]
+            ))
+        ]
+    )
     return
+
+# Function to reply complete registration
+def reply_registration_complete(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text=f'💬 ลงทะเบียนเข้าใช้งานเสร็จสิ้น\n พิมพ์ `เริ่มต้นใช้งาน` หรือกดเมนูด้านล่างเพื่อเริ่มต้นการใช้งาน', quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=MessageAction(label='✅ เริ่มต้นใช้งาน', text='เริ่มต้นใช้งาน')),
+                    QuickReplyButton(action=MessageAction(label='⚙️ คู่มือการใช้งาน', text='คู่มือการใช้งาน'))
+                ]
+            ))
+        ]
+    )
+    return
+
+# Function to reply error registration
+def reply_registration_error(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text='❌ ขออภัยระบบตรวจสอบการป้อนข้อมูลผิดพลาดกรุณาตรวจสอบข้อมูลและป้อนใหม่อีกครั้ง'),
+            FlexSendMessage(alt_text="Registration Data Form", contents=func_registration_data_collection_form(), quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=MessageAction(label='✅ ยืนยันการลงทะเบียน',text='ยืนยันการลงทะเบียน')),
+                    QuickReplyButton(action=MessageAction(label='❌ ละทิ้งข้อมูลทั้งหมด',text='ละทิ้งข้อมูลทั้งหมด')),
+                ]
+            ))
+            
+        ]
+    )
+    return
+
+# Function to reply registration data collection form (isActive)
+def reply_registration_data_collection_form_active(event):
+    arr_text = event.message.text.split('\n')
+    fullname = arr_text[0]
+    telephone = arr_text[1]
+    organization = arr_text[2]
+    line_bot_api.reply_message(
+        event.reply_token,[
+            FlexSendMessage(alt_text="Registration Data Form", contents=func_registration_data_collection_form(fullname, telephone, organization), quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=MessageAction(label='✅ ยืนยันการลงทะเบียน',text='ยืนยันการลงทะเบียน')),
+                    QuickReplyButton(action=MessageAction(label='❌ ละทิ้งข้อมูลทั้งหมด',text='ละทิ้งข้อมูลทั้งหมด')),
+                ]
+            ))
+        ]
+    )
+    return
+
+# Function validate data for commit registration 
+def validate_commit_registration(event):
+    return True
+
+# Function record user in database 
+def create_user_db(event):
+    columns = "(user_id)"
+    values = f"('{event.source.user_id}')"
+    insert_db('users', columns, values)
+    return
+
 @app.route('/',methods=['GET'])
 def default():
     return 'Hello World!'
@@ -70,14 +144,25 @@ def callback():
 
 @handler.add(FollowEvent)
 def handle_follow_event(event):
+    create_user_db(event)
     reply_registration_to_access(event)
     return
 
 @handler.add(MessageEvent,message=TextMessage)
 def handle_text_event(event):
-    reply_registration_to_access(event)
+    # reply_registration_to_access(event)
+    if(event.message.text == 'ลงทะเบียนเข้าใช้งาน'):
+        reply_registration_data_collection_form(event)
+    elif(event.message.text == 'ละทิ้งข้อมูลทั้งหมด'):
+        reply_registration_data_collection_form(event)
+    elif(event.message.text == 'ยืนยันการลงทะเบียน'):
+        if validate_commit_registration(event): 
+            reply_registration_complete(event)
+        else: 
+            reply_registration_error(event)
+    else:
+        reply_registration_data_collection_form_active(event)
     return
-
 
 @handler.add(MessageEvent,message=LocationMessage)
 def handle_location_event(event):
