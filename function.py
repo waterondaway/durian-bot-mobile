@@ -52,7 +52,7 @@ def func_registration_to_access():
     }
     }
 
-def func_registration_data_collection_form(fullname='',telephone='',organization=''):
+def func_registration_data_collection_form(fullname = '', telephone = '' ,organization = '', farmer_code = ''):
     return {
     "type": "bubble",
     "hero": {
@@ -102,6 +102,15 @@ def func_registration_data_collection_form(fullname='',telephone='',organization
             {
                 "type": "text",
                 "text": f"สังกัดจังหวัด : {organization}",
+                "weight": "regular",
+                "align": "start",
+                "margin": "md",
+                "wrap": True,
+                "contents": []
+            },
+            {
+                "type": "text",
+                "text": f"รหัสเกษตรกร : {farmer_code}",
                 "weight": "regular",
                 "align": "start",
                 "margin": "md",

@@ -41,3 +41,12 @@ def update_db(table_name, command, column_index_first, column_val_first):
     db.commit()
     mycursor.close()
     db.close()
+
+def remove_db(table_name, columns, values):
+    db = active_db()
+    mycursor = db.cursor()
+    SQL = f"DELETE FROM {table_name} WHERE {columns} = {values}"
+    mycursor.execute(SQL)
+    db.commit()
+    mycursor.close()
+    db.close()
