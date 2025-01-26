@@ -10,22 +10,18 @@ from linebot.exceptions import (
 from linebot.models import (
     MessageEvent, FollowEvent, TextMessage, ImageMessage, LocationMessage, StickerMessage,
     FlexSendMessage, TextSendMessage, QuickReply, QuickReplyButton, MessageAction, UnfollowEvent,
-    CameraRollAction, CameraAction
+    CameraRollAction, CameraAction, TemplateSendMessage, ButtonsTemplate, URIAction, LocationAction
 )
-from function import (
-    func_registration_to_access, func_registration_data_collection_form
-)
-from database import (
-    insert_db, update_db, get_value_db, remove_db
-)
-import requests, os, json
-# Load environment from .env file ------
+
+import os, json
 from dotenv import load_dotenv
 load_dotenv()
+
 
 # Turn OFF Warning ---------------------
 import warnings
 warnings.filterwarnings('ignore')
+
 
 # Main Execution -----------------------
 app = Flask(__name__)
@@ -34,15 +30,11 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(os.getenv('channel_access_token'))
 handler = WebhookHandler(os.getenv('channel_secret'))
 
-@app.route('/',methods=['GET'])
-def default():
-    return 'Hello World!'
-
 @app.route("/callback",methods=['POST'])
 def callback():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
-    app.logger.info("Request body: " + body)
+    #app.logger.info("Request body: " + body)
     try:
         handler.handle(body, signature)
     except LineBotApiError as e:
@@ -59,243 +51,270 @@ def callback():
 def reply_greeting_message(event):
     line_bot_api.reply_message(
         event.reply_token,[
-            TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ 💬"),
-            FlexSendMessage(alt_text="Register to Access", contents=func_registration_to_access(), quick_reply=QuickReply(
+            # TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ"),
+            TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ",quick_reply=QuickReply(
                 items=[
-                    QuickReplyButton(action=MessageAction(label='🖊 ลงทะเบียนเข้าใช้งาน',text='ลงทะเบียนเข้าใช้งาน')),
+                    QuickReplyButton(action=MessageAction(label="อัปโหลดข้อมูล",text="upload"))
                 ]
             )),
+            # FlexSendMessage(alt_text="แบบฟอร์มลงทะเบียนเข้าใช้งาน", contents=func_registration_to_access(), quick_reply=QuickReply(
+            #     items=[
+            #         QuickReplyButton(action=MessageAction(label='🖊 ลงทะเบียนเข้าใช้งาน',text='ลงทะเบียนเข้าใช้งาน')),
+            #     ]
+            # )),
         ]
     )
 
-# Function to reply registration data collection form
-def reply_registration_data_collection_form(event):
-    line_bot_api.reply_message(
-        event.reply_token,[
-            FlexSendMessage(alt_text="คู่มือแบบฟอร์มการสมัครสมาชิก", contents=func_registration_data_collection_form())
-        ]
-    )
-
-# Function to reply complete registration
-def reply_registration_complete(event):
-    line_bot_api.reply_message(
-        event.reply_token,[
-            TextSendMessage(text=f'💬 ลงทะเบียนเข้าใช้งานเสร็จสิ้น\n พิมพ์ `อัปโหลดรูปภาพ` หรือกดเมนูด้านล่างเพื่ออัปโหลดรูปภาพ', quick_reply=QuickReply(
-                items=[
-                    QuickReplyButton(action=MessageAction(label='✅ อัปโหลดรูปภาพ', text='อัปโหลดรูปภาพ')),
-                ]
-            ))
-        ]
-    )
-
-# Function to reply error registration
-def reply_registration_error(event):
-    line_bot_api.reply_message(
-        event.reply_token,[
-            TextSendMessage(text='❌ ขออภัยระบบตรวจสอบการป้อนข้อมูลผิดพลาดกรุณาตรวจสอบข้อมูลและป้อนใหม่อีกครั้ง'),
-        ]
-    )
-
-# Function to reply registration data collection form (isActive)
-def reply_registration_data_collection_form_active(event, fullname, telephone, organization, farmer_code):
-    line_bot_api.reply_message(
-        event.reply_token,[
-            FlexSendMessage(alt_text="Registration Data Form", contents=func_registration_data_collection_form(fullname, telephone, organization, farmer_code), quick_reply=QuickReply(
-                items=[
-                    QuickReplyButton(action=MessageAction(label='✅ ยืนยันการลงทะเบียน',text='ยืนยันการลงทะเบียน')),
-                    QuickReplyButton(action=MessageAction(label='❌ ละทิ้งข้อมูลทั้งหมด',text='ละทิ้งข้อมูลทั้งหมด')),
-                ]
-            ))
-        ]
-    )
-
-# Function validate data for commit registration 
-def validate_commit_registration(text):
+# Function to check registration status
+def function_validate_registration_status(event):
     return True
 
-# Function record user in database 
-def create_user_db(event):
-    columns = "(user_id)"
-    values = f"('{event.source.user_id}')"
-    insert_db('users', columns, values)
-
-# Function delete user in database 
-def remove_user_db(event):
-    columns = "(user_id)"
-    values = f"'{event.source.user_id}'"
-    remove_db('users', columns, values)
-
-# Function to check registration status in database
-def check_registration_status(event):
-    table_name = "users"
-    columns = "*"
-    condition = f"user_id = '{event.source.user_id}'"
-
-    for index in get_value_db(columns, table_name, condition):
-        user_id = index[1]
-        registration_status = index[3]
-        fullname = index[4]
-        telephone = index[5]
-        organization = index[6]
-        farmer_code = index[7]
-
-    if(int(registration_status) == 1):
-        return True
-    else:
-        if(event.message.type == "text"):
-            # error
-            if(event.message.text == "ลงทะเบียนเข้าใช้งาน"):
-                reply_registration_data_collection_form(event)
-                return False
-            # error
-            elif(event.message.text == "ยืนยันการลงทะเบียน"):
-                update_db("users", "registration_status = 1", 'user_id', user_id)
-                reply_registration_complete(event)
-                return True
-            # error
-            elif(event.message.text == "ละทิ้งข้อมูลทั้งหมด"):
-                update_db("users", f"fullname = NULL, telephone = NULL, organization = NULL, farmer_code = NULL", 'user_id', user_id)
-                reply_registration_data_collection_form(event)
-                return False
-            else :
-                if(validate_commit_registration(text=event.message.text)):
-                    arr_text = event.message.text.split('\n')
-                    # error -> list of out index here
-                    fullname = arr_text[0]
-                    telephone = arr_text[1]
-                    organization = arr_text[2]
-                    farmer_code = arr_text[3]
-                    update_db("users", f"fullname = '{fullname}', telephone = '{telephone}', organization = '{organization}', farmer_code = '{farmer_code}'", 'user_id', user_id)
-                    reply_registration_data_collection_form_active(event, fullname, telephone, organization, farmer_code)
-                    return False
-                else:
-                    reply_registration_error(event)
-                    return False
-
-# Function to reply initial upload images
-def reply_upload_images(event):
+# Function to reply unregistration
+def reply_unregistration(event):
     line_bot_api.reply_message(
         event.reply_token,[
-            TextSendMessage(text="💬 ท่านสามารถส่งภาพที่ต้องการโดยการอัปโหลดหรือถ่ายภาพผ่านช่องทางนี้ครับ", quick_reply=QuickReply(
-                items=[
-                    QuickReplyButton(action=CameraRollAction(label="เลือกภาพจากคลังรูปภาพ")),
-                    QuickReplyButton(action=CameraAction(label="ถ่ายภาพ")),
-                ]
-            ))
+            TextSendMessage(text="💬 ระบบร้องขอให้ผู้ใช้งานลงทะเบียนเข้าใช้ ก่อนเริ่มทำการใช้งานครับ")
         ]
     )
 
 # Function to save images
-def save_image(event):
-    save_path = 'assets/images/'
+def function_save_image(event):
+    save_path = 'assets/image/'
     filename = f'{event.timestamp}.jpg'
     destination_path = os.path.join(save_path, filename)
     image_content = line_bot_api.get_message_content(event.message.id)
     with open(destination_path, 'wb') as fd:
         for chunk in image_content.iter_content():
             fd.write(chunk)
+# Function to append data (image) to json file
+def function_append_image_json(event):
+    json_path = 'image.json'
 
-# Function to append json file
-def append_data(event):
-    json_path = 'image_files.json'
-    if os.path.exists(json_path):
-        with open(json_path, 'r', encoding='utf-8') as f:
-            image_data = json.load(f)
-    else:
-        image_data = {}
-
-    table_name = "users"
-    columns = "*"
-    condition = f"user_id = '{event.source.user_id}'"
-
-    for index in get_value_db(columns, table_name, condition):
-        farmer_code = index[7]
-    
-
-    if farmer_code in image_data:
-        image_data[farmer_code].append({
-            "image_path" : f"{event.timestamp}.jpg",
-        })
-    else:
-        image_data[farmer_code] = [{
-            "image_path" : f"{event.timestamp}.jpg",
-        }]
-    
-    with open(json_path, 'w', encoding='utf-8') as f:
-        json.dump(image_data, f, ensure_ascii=False, indent=4)
-
-# Function to update json file
-def update_data(event):
-    json_path = 'image_files.json'
     with open(json_path, 'r', encoding='utf-8') as f:
-        image_data = json.load(f)
-
-    table_name = "users"
-    columns = "*"
-    condition = f"user_id = '{event.source.user_id}'"
-    for index in get_value_db(columns, table_name, condition):
-        farmer_code = index[7]
-
-    if farmer_code in image_data:
-        for item in image_data[farmer_code]:
-            if "latitude" not in item or item["latitude"] == "":
-                item["latitude"] = event.message.latitude
-            if "longitude" not in item or item["longitude"] == "":
-                item["longitude"] = event.message.longitude
+        image_json = json.load(f)
+ 
+    if "images" in image_json[event.source.user_id]:
+        image_json[event.source.user_id]["images"].append(f"{event.timestamp}.jpg")
+    else:
+        image_json[event.source.user_id]["images"] = [f"{event.timestamp}.jpg"]
+    
     with open(json_path, 'w', encoding='utf-8') as f:
-        json.dump(image_data, f, ensure_ascii=False, indent=4)
-    return 
+        json.dump(image_json, f, ensure_ascii=False, indent=4)
 
-# Function to .post to web api
-def post_information(event):
-    json_path = 'image_files.json'
+# Function to check valid/invalid append or update to json file
+def function_validate_key_json(event):
+    json_path = 'image.json'
+    with open(json_path, 'r', encoding='utf-8') as f:
+            image_json = json.load(f)
+    if event.source.user_id in image_json:
+        return True
+    else:
+        return False
+    
+# Function to append data (location) to json file 
+def function_append_location_json(event):
+    json_path = 'image.json'
     if os.path.exists(json_path):
         with open(json_path, 'r', encoding='utf-8') as f:
-            image_data = json.load(f)
-    table_name = "users"
-    columns = "*"
-    condition = f"user_id = '{event.source.user_id}'"
-    for index in get_value_db(columns, table_name, condition):
-        farmer_code = index[7]
-        for item in image_data[farmer_code]:
-            print(farmer_code, item['image_path'])
+            image_json = json.load(f)
+    
+    image_json[event.source.user_id]["location"] = {
+        "latitude" : event.message.latitude,
+        "longitude" : event.message.longitude
+    }
+
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(image_json, f, ensure_ascii=False, indent=4)
+
+# Function to create key to json file
+def function_create_key_json(event):
+    json_path = 'image.json'
+    with open(json_path, 'r', encoding='utf-8') as f:
+        image_json = json.load(f)
+    image_json[event.source.user_id] = {}
+
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(image_json, f, ensure_ascii=False, indent=4)
+    return True
+
+# Function to reply already have key in json file
+def reply_already_key_json(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text="💬 ระบบตรวจพบการร้องขอไว้ก่อนหน้าแล้ว ท่านสามารถอัปโหลดรูปภาพที่ต้องการและตำแหน่งที่ตั้งของท่านได้เลยครับ",quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=CameraAction(label="Camera")),
+                    QuickReplyButton(action=CameraRollAction(label="Camera Roll")),
+                    QuickReplyButton(action=LocationAction(label="Location"))
+                ]
+            ))
+        ]
+    )
+
+# Function to reply ready for upload
+def reply_ready_upload(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text="💬 ระบบพร้อมอัปโหลดรูปภาพและตำแหน่งที่ตั้งของท่านแล้วครับ",quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=CameraAction(label="Camera")),
+                    QuickReplyButton(action=CameraRollAction(label="Camera Roll")),
+                    QuickReplyButton(action=LocationAction(label="Location"))
+                ]
+            ))
+        ]
+    )
+
+def reply_upload_images(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text="💬 อัปโหลดรูปภาพดังกล่าวแล้ว",quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=CameraAction(label="Camera")),
+                    QuickReplyButton(action=CameraRollAction(label="Camera Roll")),
+                    QuickReplyButton(action=LocationAction(label="Location")),
+                    QuickReplyButton(action=MessageAction(label="Submit",text="submit")),
+                ]
+            ))
+        ]
+    )
+# Function to reply unalready have key in json file
+def reply_unalready_key_json(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text="💬 ระบบไม่พบการร้องขออัปโหลดรูปภาพ กรุณาพิมพ์ 'upload' ก่อนครับ",quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=MessageAction(label="อัปโหลดข้อมูล",text="upload"))
+                ]
+            ))
+        ]
+    )
+
+# Function to reply upload data complete
+def reply_upload_complete(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text="💬 ระบบอัปโหลดรูปภาพของท่านแล้วครับ")
+        ]
+    )
+
+# Function to check all data have value in json file
+def function_validate_complete_json(event):
+    json_path = 'image.json'
+    with open(json_path, 'r', encoding='utf-8') as f:
+        image_json = json.load(f)
+    if "images" in image_json[event.source.user_id] and "location" in image_json[event.source.user_id]:
+        return True
+    else:
+        return False
+
+
+# Function to reply upload data failed
+def reply_upload_failed(event):
+    line_bot_api.reply_message(
+        event.reply_token,[
+            TextSendMessage(text="💬 ระบบตรวจพบข้อมูลยังไม่ครบกรุณากรอกข้อมูลให้ครบถ้วนก่อนครับ",quick_reply=QuickReply(
+                items=[
+                    QuickReplyButton(action=CameraAction(label="Camera")),
+                    QuickReplyButton(action=CameraRollAction(label="Camera Roll")),
+                    QuickReplyButton(action=LocationAction(label="Location")),
+                ]
+            ))
+        ]
+    )
+
+# Function to remove key in json file
+def function_remove_key_json(event):
+    json_path = 'image.json'
+    with open(json_path, 'r', encoding='utf-8') as f:
+        image_json = json.load(f)
+
+    del image_json[event.source.user_id]
+
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(image_json, f, ensure_ascii=False, indent=4)
+
+# Function to post image to server
+def function_post_image(event):
+    return 
 
 @handler.add(FollowEvent)
 def handle_follow_event(event):
-    create_user_db(event)
     reply_greeting_message(event)
     return 200
 
 @handler.add(UnfollowEvent)
 def handle_unfollow_event(event):
-    remove_user_db(event)
+    function_remove_key_json(event)
     return 200
 
-@handler.add(MessageEvent,message=TextMessage)
+@handler.add(MessageEvent, message=TextMessage)
 def handle_text_event(event):
-    if(check_registration_status(event)):
-        user_message = event.message.text
-        if(user_message == "อัปโหลดรูปภาพ"):
-            reply_upload_images(event)
+    if(function_validate_registration_status(event)):
+        print(f"\nTextMessage from {event.source.user_id} | Message : {event.message.text}")
 
-@handler.add(MessageEvent,message=LocationMessage)
+        if(event.message.text == "upload"):
+            if(function_validate_key_json(event) == False):
+                function_create_key_json(event)
+                reply_ready_upload(event)
+            else:
+                reply_already_key_json(event)
+        elif(event.message.text == "submit"):
+            if(function_validate_key_json(event)):
+                if(function_validate_complete_json(event)):
+                    function_post_image(event)
+                    reply_upload_complete(event)
+                    function_remove_key_json(event)
+                else:
+                    reply_upload_failed(event)
+            else:
+                reply_unalready_key_json(event)
+    else:
+        print(f"\nUnregistration User | TextMessage from {event.source.user_id} | Message : {event.message.text}")
+        reply_unregistration(event)
+
+    return 200
+
+@handler.add(MessageEvent, message=LocationMessage)
 def handle_location_event(event):
-    if(check_registration_status(event)):
-        update_data(event)
-        post_information(event)
-    return
+    if(function_validate_registration_status(event)):
+        print(f"\nLocationMessage from {event.source.user_id} | Location : {event.message.latitude} {event.message.longitude}")
+        if function_validate_key_json(event):
+            function_append_location_json(event)
+            reply_upload_images(event)
+        else:
+            reply_unalready_key_json(event)
+    else:
+        print(f"\nUnregistration User | LocationMessage from {event.source.user_id} | Location : {event.message.latitude} {event.message.longitude}")
+        reply_unregistration(event)
 
-@handler.add(MessageEvent,message=StickerMessage)
-def handle_sticker_event(event):
-    return
+    return 200
 
-@handler.add(MessageEvent,message=ImageMessage)
+@handler.add(MessageEvent, message=ImageMessage)
 def handle_image_event(event):
-    if(check_registration_status(event)):
-        save_image(event)
-        append_data(event)
-        
-        return
+    if(function_validate_registration_status(event)):
+        print(f"\nImageMessage from {event.source.user_id} | Image : {event.timestamp}.jpg")
+        if function_validate_key_json(event):
+            function_save_image(event)
+            function_append_image_json(event)
+            reply_upload_images(event)
+        else:
+            reply_unalready_key_json(event)
+
+    else:
+        print(f"\nUnregistration User | ImageMessage from {event.source.user_id} | Image : {event.timestamp}")
+        reply_unregistration(event)
+    return 200
+
+@handler.add(MessageEvent, message=StickerMessage)
+def handle_sticker_event(event):
+    if(function_validate_registration_status(event)):
+        print(f"\nStickerMessage from {event.source.user_id} | StickerID : # PackageID : #")
+    else:
+        print(f"\nUnregistration User | StickerMessage from {event.source.user_id} | StickerID : # PackageID : #")
+        reply_unregistration(event)
+    return 200
+
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8080)
+    app.run(debug=True, port=8000)
