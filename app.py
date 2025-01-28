@@ -17,6 +17,9 @@ import os, json, requests
 from dotenv import load_dotenv
 load_dotenv()
 
+from flexmessage import (
+    function_greeting_template
+)
 
 # Turn OFF Warning ---------------------
 import warnings
@@ -51,23 +54,28 @@ def callback():
 def reply_greeting_message(event):
     line_bot_api.reply_message(
         event.reply_token,[
-            TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ",quick_reply=QuickReply(
-                items=[
-                    QuickReplyButton(action=MessageAction(label="อัปโหลดข้อมูล",text="upload"))
-                ]
-            )),
+            TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ"),
+            FlexSendMessage(alt_text='ลงทะเบียนเข้าใช้งาน', contents=function_greeting_template())
         ]
     )
 
 # Function to check registration status
 def function_validate_registration_status(event):
-    return True
+    return False
 
 # Function to reply unregistration
 def reply_unregistration(event):
     line_bot_api.reply_message(
         event.reply_token,[
             TextSendMessage(text="💬 ระบบร้องขอให้ผู้ใช้งานลงทะเบียนเข้าใช้ ก่อนเริ่มทำการใช้งานครับ")
+        ]
+    )
+
+# Function to reply registration guide
+def reply_registration_guide(event):
+    line_bot_api.reply_message(
+        event.reply_token, [
+            FlexSendMessage(alt_text='ลงทะเบียนเข้าใช้งาน', contents=function_greeting_template())
         ]
     )
 
@@ -80,7 +88,7 @@ def function_save_image(event):
     with open(destination_path, 'wb') as fd:
         for chunk in image_content.iter_content():
             fd.write(chunk)
-            
+
 # Function to append data (image) to json file
 def function_append_image_json(event):
     json_path = 'image.json'
@@ -284,7 +292,10 @@ def handle_text_event(event):
             function_post_image(event)
     else:
         print(f"\nUnregistration User | TextMessage from {event.source.user_id} | Message : {event.message.text}")
-        reply_unregistration(event)
+        if(event.message.text == "ลงทะเบียนเข้าใช้งาน"):
+            reply_registration_guide(event)
+        else:
+            reply_unregistration(event)
 
     return 200
 
