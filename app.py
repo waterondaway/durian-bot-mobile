@@ -13,7 +13,7 @@ from linebot.models import (
     CameraRollAction, CameraAction, TemplateSendMessage, ButtonsTemplate, URIAction, LocationAction
 )
 
-import os, json
+import os, json, requests
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -51,17 +51,11 @@ def callback():
 def reply_greeting_message(event):
     line_bot_api.reply_message(
         event.reply_token,[
-            # TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ"),
             TextSendMessage(text=f"👋🏻 สวัสดีครับคุณ {line_bot_api.get_profile(event.source.user_id).display_name} ✨ ขอบคุณที่เป็นเพื่อนกับเราลงทะเบียนก่อนเข้าใช้งานในช่องแชทด้านล่างนี้ได้เลยครับ",quick_reply=QuickReply(
                 items=[
                     QuickReplyButton(action=MessageAction(label="อัปโหลดข้อมูล",text="upload"))
                 ]
             )),
-            # FlexSendMessage(alt_text="แบบฟอร์มลงทะเบียนเข้าใช้งาน", contents=func_registration_to_access(), quick_reply=QuickReply(
-            #     items=[
-            #         QuickReplyButton(action=MessageAction(label='🖊 ลงทะเบียนเข้าใช้งาน',text='ลงทะเบียนเข้าใช้งาน')),
-            #     ]
-            # )),
         ]
     )
 
@@ -86,6 +80,7 @@ def function_save_image(event):
     with open(destination_path, 'wb') as fd:
         for chunk in image_content.iter_content():
             fd.write(chunk)
+            
 # Function to append data (image) to json file
 def function_append_image_json(event):
     json_path = 'image.json'
@@ -236,8 +231,24 @@ def function_remove_key_json(event):
 
 # Function to post image to server
 def function_post_image(event):
-    return 
-
+    print("Send send send")
+    with open(f'assets/image/1738003088366.jpg', "rb") as image_file:
+        files = {
+            'image': image_file
+        }
+        data = {
+            'farmer_id': '782-129-491-212',
+            'latitude': '13.123',
+            'longitude': '10.1239'
+        }
+        print(f"Content-Type: {files['image'].name}")
+        try:
+            response = requests.post('http://localhost:3000/api/upload', files=files, data=data)
+            print(response.status_code)
+            print(response.text)
+        except requests.exceptions.RequestException as e:
+            print(e)
+        
 @handler.add(FollowEvent)
 def handle_follow_event(event):
     reply_greeting_message(event)
@@ -269,6 +280,8 @@ def handle_text_event(event):
                     reply_upload_failed(event)
             else:
                 reply_unalready_key_json(event)
+        elif(event.message.text == "yo"):
+            function_post_image(event)
     else:
         print(f"\nUnregistration User | TextMessage from {event.source.user_id} | Message : {event.message.text}")
         reply_unregistration(event)
