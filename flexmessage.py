@@ -7,11 +7,6 @@ def function_greeting_template():
             "size": "full",
             "aspectRatio": "18:6",
             "aspectMode": "cover",
-            "action": {
-            "type": "uri",
-            "label": "Line",
-            "uri": "https://linecorp.com/"
-            }
         },
         "body": {
             "type": "box",
