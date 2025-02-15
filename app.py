@@ -163,6 +163,7 @@ def function_append_location_json(event):
             image_json = json.load(f)
     
     image_json[event.source.user_id]["location"] = {
+        "address" : event.message.address,
         "latitude" : event.message.latitude,
         "longitude" : event.message.longitude
     }
@@ -322,6 +323,7 @@ def function_post_image(event):
             }
             data = {
                 'farmer_id': farmer_id,
+                'address': location['address'],
                 'latitude': location['latitude'],
                 'longitude': location['longitude']
             }
